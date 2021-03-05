@@ -22,31 +22,44 @@
  * SOFTWARE.
  */
 
-use crate::grid::generator::Generator;
-use crate::grid::parser::Parser;
-use crate::solver::Solver;
-use std::io;
-use std::io::{Error, Read};
+pub mod generator;
+pub mod parser;
 
-pub mod grid;
-pub mod solver;
+const GRID_SIZE: usize = 3;
+const SUBGRID_SIZE: usize = 3;
 
-fn main() {
-    let mut stdin = io::stdin();
-    let grid_syntax = read_input(&mut stdin).expect("Cannot read from std input");
-    let parser = Parser::default();
-    let grid = parser.parse(grid_syntax).expect("Cannot parse grid syntax");
-    let solver = Solver::new(grid);
-    let solved_grid = solver.solve().expect("Cannot solve the given grid");
-    let generator = Generator::default();
-    let readable_grid = generator
-        .generate(solved_grid)
-        .expect("Cannot generate readable grid");
-    println!("{}", readable_grid);
+#[derive(Debug, Clone)]
+pub struct Grid {
+    subgrids: Vec<Subgrid>,
 }
 
-fn read_input(stdin: &mut dyn Read) -> Result<String, Error> {
-    let mut result = String::new();
-    stdin.read_to_string(&mut result)?;
-    Ok(result)
+impl Default for Grid {
+    fn default() -> Self {
+        let subgrids = vec![Subgrid::default(); GRID_SIZE * GRID_SIZE];
+        Self::new(subgrids)
+    }
+}
+
+impl Grid {
+    pub fn new(subgrids: Vec<Subgrid>) -> Self {
+        Grid { subgrids }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Subgrid {
+    digits: Vec<u32>,
+}
+
+impl Default for Subgrid {
+    fn default() -> Self {
+        let digits = vec![0; SUBGRID_SIZE * SUBGRID_SIZE];
+        Self::new(digits)
+    }
+}
+
+impl Subgrid {
+    pub fn new(digits: Vec<u32>) -> Self {
+        Subgrid { digits }
+    }
 }

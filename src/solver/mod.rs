@@ -22,31 +22,22 @@
  * SOFTWARE.
  */
 
-use crate::grid::generator::Generator;
-use crate::grid::parser::Parser;
-use crate::solver::Solver;
-use std::io;
-use std::io::{Error, Read};
+use crate::grid::Grid;
+use std::borrow::Cow;
 
-pub mod grid;
-pub mod solver;
+pub type SolverResult = Result<Grid, SolverError>;
+pub type SolverError = Cow<'static, str>;
 
-fn main() {
-    let mut stdin = io::stdin();
-    let grid_syntax = read_input(&mut stdin).expect("Cannot read from std input");
-    let parser = Parser::default();
-    let grid = parser.parse(grid_syntax).expect("Cannot parse grid syntax");
-    let solver = Solver::new(grid);
-    let solved_grid = solver.solve().expect("Cannot solve the given grid");
-    let generator = Generator::default();
-    let readable_grid = generator
-        .generate(solved_grid)
-        .expect("Cannot generate readable grid");
-    println!("{}", readable_grid);
+pub struct Solver {
+    grid: Grid,
 }
 
-fn read_input(stdin: &mut dyn Read) -> Result<String, Error> {
-    let mut result = String::new();
-    stdin.read_to_string(&mut result)?;
-    Ok(result)
+impl Solver {
+    pub fn new(grid: Grid) -> Self {
+        Self { grid }
+    }
+
+    pub fn solve(&self) -> SolverResult {
+        Ok(self.grid.clone())
+    }
 }
