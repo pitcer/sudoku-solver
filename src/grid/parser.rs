@@ -22,8 +22,10 @@
  * SOFTWARE.
  */
 
-use crate::grid::Grid;
 use std::borrow::Cow;
+use std::str::Chars;
+
+use crate::grid::{Grid, Subgrid, GRID_SIZE, GRID_SIZE_SQUARED, SUBGRID_SIZE};
 
 pub type ParserResult = Result<Grid, ParserError>;
 pub type ParserError = Cow<'static, str>;
@@ -41,7 +43,80 @@ impl Parser {
         Self {}
     }
 
-    pub fn parse(&self, _syntax: String) -> ParserResult {
-        Ok(Grid::default())
+    pub fn parse(&self, syntax: String) -> ParserResult {
+        let characters = syntax.chars();
+        let subgrids_digits = self.parse_characters(characters)?;
+        let subgrids = subgrids_digits
+            .into_iter()
+            .map(Subgrid::new)
+            .collect::<Vec<Subgrid>>();
+        let grid = Grid::new(subgrids);
+        Ok(grid)
+    }
+
+    fn parse_characters(&self, characters: Chars) -> Result<Vec<Vec<u32>>, ParserError> {
+        let mut digit_counter = 0;
+        let mut subgrids_digits: Vec<Vec<u32>> = vec![Vec::default(); GRID_SIZE_SQUARED];
+        for character in characters {
+            self.parse_character(character, &mut digit_counter, &mut subgrids_digits)?;
+        }
+        Ok(subgrids_digits)
+    }
+
+    fn parse_character(
+        &self,
+        character: char,
+        digit_counter: &mut usize,
+        subgrids_digits: &mut Vec<Vec<u32>>,
+    ) -> Result<(), ParserError> {
+        match character {
+            '0'..='9' => self.parse_digit(character, digit_counter, subgrids_digits),
+            ',' | ';' | '\n' | ' ' => Ok(()),
+            _ => Err(format!("Invalid character: '{}'", character).into()),
+        }
+    }
+
+    fn parse_digit(
+        &self,
+        character: char,
+        digit_counter: &mut usize,
+        subgrids_digits: &mut Vec<Vec<u32>>,
+    ) -> Result<(), ParserError> {
+        let counter = *digit_counter;
+        const GRID_WIDTH: usize = GRID_SIZE * SUBGRID_SIZE;
+        let row = counter / (GRID_WIDTH * GRID_SIZE);
+        let index = GRID_SIZE * row + (counter / SUBGRID_SIZE) % GRID_SIZE;
+        let digits = subgrids_digits.get_mut(index).ok_or("Invalid index")?;
+        let digit = character.to_digit(10).ok_or("Invalid character")?;
+        digits.push(digit);
+        *digit_counter += 1;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type TestResult = Result<(), ParserError>;
+
+    #[test]
+    fn test_grid_is_parsed_correctly() -> TestResult {
+        let expected = Grid::new(vec![
+            Subgrid::new(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]),
+            Subgrid::new(vec![9, 8, 7, 6, 5, 4, 3, 2, 1]),
+            Subgrid::new(vec![1, 0, 0, 0, 0, 0, 0, 0, 9]),
+            Subgrid::new(vec![9, 8, 7, 6, 5, 4, 3, 2, 1]),
+            Subgrid::new(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]),
+            Subgrid::new(vec![9, 0, 0, 0, 0, 0, 0, 0, 1]),
+            Subgrid::default(),
+            Subgrid::default(),
+            Subgrid::default(),
+        ]);
+        let parser = Parser::default();
+        let syntax = include_str!("test.grid").to_owned();
+        let actual = parser.parse(syntax)?;
+        assert_eq!(expected, actual);
+        Ok(())
     }
 }

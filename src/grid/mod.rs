@@ -25,17 +25,19 @@
 pub mod generator;
 pub mod parser;
 
-const GRID_SIZE: usize = 3;
-const SUBGRID_SIZE: usize = 3;
+pub const GRID_SIZE: usize = 3;
+pub const SUBGRID_SIZE: usize = 3;
+pub const GRID_SIZE_SQUARED: usize = GRID_SIZE * GRID_SIZE;
+pub const SUBGRID_SIZE_SQUARED: usize = SUBGRID_SIZE * SUBGRID_SIZE;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Grid {
     subgrids: Vec<Subgrid>,
 }
 
 impl Default for Grid {
     fn default() -> Self {
-        let subgrids = vec![Subgrid::default(); GRID_SIZE * GRID_SIZE];
+        let subgrids = vec![Subgrid::default(); GRID_SIZE_SQUARED];
         Self::new(subgrids)
     }
 }
@@ -46,14 +48,14 @@ impl Grid {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Subgrid {
     digits: Vec<u32>,
 }
 
 impl Default for Subgrid {
     fn default() -> Self {
-        let digits = vec![0; SUBGRID_SIZE * SUBGRID_SIZE];
+        let digits = vec![0; SUBGRID_SIZE_SQUARED];
         Self::new(digits)
     }
 }
