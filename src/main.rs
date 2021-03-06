@@ -36,12 +36,16 @@ fn main() {
     let grid = parser.parse(grid_syntax).expect("Cannot parse grid syntax");
     let solver = Solver::new(grid);
     let solved_grid = solver.solve().expect("Cannot solve the given grid");
-    dbg!(&solved_grid);
     let generator = Generator::default();
     let readable_grid = generator
-        .generate(solved_grid)
+        .generate(&solved_grid)
         .expect("Cannot generate readable grid");
     println!("{}", readable_grid);
+    if solved_grid.is_solved_correctly() {
+        println!("Grid has been solved correctly.");
+    } else {
+        println!("Grid has been solved incorrectly!");
+    }
 }
 
 fn read_input(stdin: &mut dyn Read) -> Result<String, Error> {
