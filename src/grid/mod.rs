@@ -61,6 +61,19 @@ impl Grid {
         true
     }
 
+    pub fn is_solved_correctly(&self) -> bool {
+        for x in 0..GRID_JOINT_SIZE {
+            for y in 0..GRID_JOINT_SIZE {
+                let digit = self.get_digit(x, y);
+                let neighbours = self.get_neighbour_digits(x, y);
+                if neighbours.contains(&digit) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     pub fn get_neighbour_digits(&self, x_joint: usize, y_joint: usize) -> Vec<&Digit> {
         let subgrid = self.get_subgrid(x_joint, y_joint);
         let (subgrid_x, subgrid_y) = to_subgrid_coordinates(x_joint, y_joint);
@@ -226,8 +239,9 @@ fn to_subgrid_coordinates(x: usize, y: usize) -> (usize, usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::grid::digit::UnknownDigit;
+
+    use super::*;
 
     #[test]
     fn test_grid_get_digit() {

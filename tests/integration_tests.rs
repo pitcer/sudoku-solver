@@ -22,30 +22,45 @@
  * SOFTWARE.
  */
 
-use std::io;
-use std::io::{Error, Read};
-
-use sudoku_solver::grid::generator::Generator;
+use std::borrow::Cow;
 use sudoku_solver::grid::parser::Parser;
 use sudoku_solver::solver::Solver;
 
-fn main() {
-    let mut stdin = io::stdin();
-    let grid_syntax = read_input(&mut stdin).expect("Cannot read from std input");
-    let parser = Parser::default();
-    let grid = parser.parse(grid_syntax).expect("Cannot parse grid syntax");
-    let solver = Solver::new(grid);
-    let solved_grid = solver.solve().expect("Cannot solve the given grid");
-    dbg!(&solved_grid);
-    let generator = Generator::default();
-    let readable_grid = generator
-        .generate(solved_grid)
-        .expect("Cannot generate readable grid");
-    println!("{}", readable_grid);
+type TestResult = Result<(), TestError>;
+type TestError = Cow<'static, str>;
+
+#[test]
+fn test_easy_board_is_solved() -> TestResult {
+    let grid_syntax = include_str!("grids/easy.grid");
+    test_grid_is_solved_correctly(grid_syntax)
 }
 
-fn read_input(stdin: &mut dyn Read) -> Result<String, Error> {
-    let mut result = String::new();
-    stdin.read_to_string(&mut result)?;
-    Ok(result)
+#[test]
+fn test_medium_grid_is_solved_correctly() -> TestResult {
+    let grid_syntax = include_str!("grids/medium.grid");
+    test_grid_is_solved_correctly(grid_syntax)
+}
+
+#[test]
+#[ignore]
+fn test_hard_grid_is_solved_correctly() -> TestResult {
+    let grid_syntax = include_str!("grids/hard.grid");
+    test_grid_is_solved_correctly(grid_syntax)
+}
+
+#[test]
+#[ignore]
+fn test_extreme_grid_is_solved_correctly() -> TestResult {
+    let grid_syntax = include_str!("grids/extreme.grid");
+    test_grid_is_solved_correctly(grid_syntax)
+}
+
+fn test_grid_is_solved_correctly(board_syntax: &'static str) -> TestResult {
+    let grid_syntax = board_syntax.to_owned();
+    let parser = Parser::default();
+    let grid = parser.parse(grid_syntax)?;
+    let solver = Solver::new(grid);
+    let solved_grid = solver.solve()?;
+    assert!(solved_grid.is_solved_correctly());
+    Ok(())
 }
