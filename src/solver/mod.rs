@@ -25,8 +25,8 @@
 use std::borrow::Cow;
 use std::time::{Duration, Instant};
 
-use crate::grid::digit::Digit;
-use crate::grid::{Grid, GRID_JOINT_SIZE};
+use crate::grid::digit::{Digit, LocalizedDigit};
+use crate::grid::{Grid, GRID_JOINT_SIZE, SUBGRID_LENGTH};
 
 pub type SolverResult = Result<Grid, SolverError>;
 pub type SolverError = Cow<'static, str>;
@@ -42,11 +42,98 @@ impl Solver {
 
     pub fn solve(mut self) -> SolverResult {
         let start = Instant::now();
-        while !self.grid.is_solved() && start.elapsed() < Duration::from_secs(4) {
+        while !self.grid.is_solved() && start.elapsed() < Duration::from_secs(1) {
             self.set_possible_values();
             self.set_values();
+            self.set_possible_values();
+            self.set_only_one_possible_solution_for_subgrids();
+            self.set_possible_values();
+            self.set_only_one_possible_solution_for_columns();
+            self.set_possible_values();
+            self.set_only_one_possible_solution_for_rows();
         }
         Ok(self.grid)
+    }
+
+    fn set_only_one_possible_solution_for_subgrids(&mut self) {
+        for subgrid in &mut self.grid.subgrids {
+            let digits = subgrid.digits();
+            let possible_values = Self::get_possible_values(digits);
+            for value in possible_values {
+                let mut digits_with_possible_value = Vec::with_capacity(9);
+                for digit in &mut subgrid.digits {
+                    if let Digit::Unknown(unknown_digit) = digit {
+                        let digit_possible_values = &unknown_digit.possible_values;
+                        if digit_possible_values.contains(&value) {
+                            digits_with_possible_value.push(digit)
+                        }
+                    }
+                }
+                if digits_with_possible_value.len() == 1 {
+                    let digit = digits_with_possible_value.swap_remove(0);
+                    let known_digit = Digit::Known(value);
+                    *digit = known_digit;
+                }
+            }
+        }
+    }
+
+    fn set_only_one_possible_solution_for_columns(&mut self) {
+        for x in 0..GRID_JOINT_SIZE {
+            let column = self.grid.get_vertical_digits(x);
+            let possible_values = Self::get_possible_values(column);
+            for value in possible_values {
+                let mut digits_with_possible_value = Vec::with_capacity(9);
+                for digit in self.grid.get_vertical_localized_digits(x) {
+                    if let Digit::Unknown(unknown_digit) = digit.digit {
+                        let digit_possible_values = &unknown_digit.possible_values;
+                        if digit_possible_values.contains(&value) {
+                            digits_with_possible_value.push(digit)
+                        }
+                    }
+                }
+                if digits_with_possible_value.len() == 1 {
+                    let digit = digits_with_possible_value.swap_remove(0);
+                    let LocalizedDigit { digit: _, x, y } = digit;
+                    let known_digit = Digit::Known(value);
+                    self.grid.set_digit(x, y, known_digit);
+                }
+            }
+        }
+    }
+
+    fn set_only_one_possible_solution_for_rows(&mut self) {
+        for y in 0..GRID_JOINT_SIZE {
+            let row = self.grid.get_horizontal_digits(y);
+            let possible_values = Self::get_possible_values(row);
+            for value in possible_values {
+                let mut digits_with_possible_value = Vec::with_capacity(9);
+                for digit in self.grid.get_horizontal_localized_digits(y) {
+                    if let Digit::Unknown(unknown_digit) = digit.digit {
+                        let digit_possible_values = &unknown_digit.possible_values;
+                        if digit_possible_values.contains(&value) {
+                            digits_with_possible_value.push(digit)
+                        }
+                    }
+                }
+                if digits_with_possible_value.len() == 1 {
+                    let digit = digits_with_possible_value.swap_remove(0);
+                    let LocalizedDigit { digit: _, x, y } = digit;
+                    let known_digit = Digit::Known(value);
+                    self.grid.set_digit(x, y, known_digit);
+                }
+            }
+        }
+    }
+
+    fn get_possible_values(digits: Vec<&Digit>) -> Vec<u32> {
+        let mut possible_values = (1..=SUBGRID_LENGTH as u32).collect::<Vec<_>>();
+        for digit in digits {
+            if let Digit::Known(digit) = digit {
+                possible_values.retain(|element| element != digit);
+            }
+        }
+        possible_values
     }
 
     fn set_values(&mut self) {
@@ -80,7 +167,7 @@ impl Solver {
     }
 
     fn get_complement(neighbours: Vec<&Digit>) -> Vec<u32> {
-        let mut complement = (1..=9).collect::<Vec<_>>();
+        let mut complement = (1..=SUBGRID_LENGTH as u32).collect::<Vec<_>>();
         for neighbour in neighbours {
             if let Digit::Known(neighbour) = neighbour {
                 complement.retain(|element| element != neighbour);

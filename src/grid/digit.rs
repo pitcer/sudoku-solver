@@ -22,7 +22,20 @@
  * SOFTWARE.
  */
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct LocalizedDigit<'a> {
+    pub digit: &'a Digit,
+    pub x: usize,
+    pub y: usize,
+}
+
+impl<'a> LocalizedDigit<'a> {
+    pub fn new(digit: &'a Digit, x: usize, y: usize) -> Self {
+        Self { digit, x, y }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Digit {
     Known(u32),
     Unknown(UnknownDigit),
@@ -44,7 +57,7 @@ impl From<u32> for Digit {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UnknownDigit {
     pub possible_values: Vec<u32>,
 }

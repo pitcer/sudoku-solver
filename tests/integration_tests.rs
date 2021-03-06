@@ -42,7 +42,6 @@ fn test_medium_grid_is_solved_correctly() -> TestResult {
 }
 
 #[test]
-#[ignore]
 fn test_hard_grid_is_solved_correctly() -> TestResult {
     let grid_syntax = include_str!("grids/hard.grid");
     test_grid_is_solved_correctly(grid_syntax)

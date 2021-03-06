@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-use crate::grid::digit::Digit;
+use crate::grid::digit::{Digit, LocalizedDigit};
 
 pub mod digit;
 pub mod generator;
@@ -35,9 +35,9 @@ pub const GRID_JOINT_SIZE: usize = GRID_SIZE * SUBGRID_SIZE;
 pub const SUBGRID_SIZE: usize = 3;
 pub const SUBGRID_LENGTH: usize = SUBGRID_SIZE * SUBGRID_SIZE;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Grid {
-    subgrids: Vec<Subgrid>,
+    pub subgrids: Vec<Subgrid>,
 }
 
 impl Default for Grid {
@@ -106,9 +106,27 @@ impl Grid {
             .collect()
     }
 
+    pub fn get_vertical_localized_digits(&self, x_joint: usize) -> Vec<LocalizedDigit> {
+        (0..GRID_JOINT_SIZE)
+            .map(|y_joint| {
+                let digit = self.get_digit(x_joint, y_joint);
+                LocalizedDigit::new(digit, x_joint, y_joint)
+            })
+            .collect()
+    }
+
     pub fn get_horizontal_digits(&self, y_joint: usize) -> Vec<&Digit> {
         (0..GRID_JOINT_SIZE)
             .map(|x_joint| self.get_digit(x_joint, y_joint))
+            .collect()
+    }
+
+    pub fn get_horizontal_localized_digits(&self, y_joint: usize) -> Vec<LocalizedDigit> {
+        (0..GRID_JOINT_SIZE)
+            .map(|x_joint| {
+                let digit = self.get_digit(x_joint, y_joint);
+                LocalizedDigit::new(digit, x_joint, y_joint)
+            })
             .collect()
     }
 
@@ -122,6 +140,12 @@ impl Grid {
         let subgrid = self.get_subgrid_mut(x_joint, y_joint);
         let (subgrid_x, subgrid_y) = to_subgrid_coordinates(x_joint, y_joint);
         subgrid.get_digit_mut(subgrid_x, subgrid_y)
+    }
+
+    pub fn set_digit(&mut self, x_joint: usize, y_joint: usize, digit: Digit) {
+        let subgrid = self.get_subgrid_mut(x_joint, y_joint);
+        let (subgrid_x, subgrid_y) = to_subgrid_coordinates(x_joint, y_joint);
+        subgrid.set_digit(subgrid_x, subgrid_y, digit);
     }
 
     pub fn get_subgrid(&self, x_joint: usize, y_joint: usize) -> &Subgrid {
@@ -153,9 +177,9 @@ impl Grid {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Subgrid {
-    digits: Vec<Digit>,
+    pub digits: Vec<Digit>,
 }
 
 impl Default for Subgrid {
@@ -190,7 +214,7 @@ impl Subgrid {
         validate_y(y, SUBGRID_SIZE);
         let mut neighbours = self.digits.iter().collect::<Vec<_>>();
         let index = self.to_subgrid_index(x, y);
-        neighbours.remove(index);
+        neighbours.swap_remove(index);
         neighbours
     }
 
@@ -206,6 +230,17 @@ impl Subgrid {
         validate_y(y, SUBGRID_SIZE);
         let index = self.to_subgrid_index(x, y);
         self.digits.get_mut(index).unwrap()
+    }
+
+    pub fn set_digit(&mut self, x: usize, y: usize, digit: Digit) {
+        validate_x(x, SUBGRID_SIZE);
+        validate_y(y, SUBGRID_SIZE);
+        let index = self.to_subgrid_index(x, y);
+        self.digits[index] = digit;
+    }
+
+    pub fn digits(&self) -> Vec<&Digit> {
+        self.digits.iter().collect()
     }
 
     fn to_subgrid_index(&self, x: usize, y: usize) -> usize {
@@ -273,6 +308,25 @@ mod tests {
     }
 
     #[test]
+    fn test_grid_get_vertical_localized_digits() {
+        let grid = create_grid();
+        assert_eq!(
+            grid.get_vertical_localized_digits(3),
+            vec![
+                LocalizedDigit::new(&Digit::Known(9), 3, 0),
+                LocalizedDigit::new(&Digit::Known(6), 3, 1),
+                LocalizedDigit::new(&Digit::Known(3), 3, 2),
+                LocalizedDigit::new(&Digit::Known(1), 3, 3),
+                LocalizedDigit::new(&Digit::Known(4), 3, 4),
+                LocalizedDigit::new(&Digit::Known(7), 3, 5),
+                LocalizedDigit::new(&Digit::Unknown(UnknownDigit::default()), 3, 6),
+                LocalizedDigit::new(&Digit::Unknown(UnknownDigit::default()), 3, 7),
+                LocalizedDigit::new(&Digit::Unknown(UnknownDigit::default()), 3, 8),
+            ]
+        );
+    }
+
+    #[test]
     fn test_grid_get_horizontal_digits() {
         let grid = create_grid();
         assert_eq!(
@@ -292,33 +346,72 @@ mod tests {
     }
 
     #[test]
-    fn test_grid_get_neighbour_digits() {
+    fn test_grid_get_horizontal_localized_digits() {
         let grid = create_grid();
         assert_eq!(
-            grid.get_neighbour_digits(5, 3),
+            grid.get_horizontal_localized_digits(5),
             vec![
-                &Digit::Known(1),
-                &Digit::Known(2),
-                &Digit::Known(4),
-                &Digit::Known(5),
-                &Digit::Known(6),
-                &Digit::Known(7),
-                &Digit::Known(8),
-                &Digit::Known(9),
-                &Digit::Known(7),
-                &Digit::Known(4),
-                &Digit::Known(1),
-                &Digit::Unknown(UnknownDigit::default()),
-                &Digit::Unknown(UnknownDigit::default()),
-                &Digit::Unknown(UnknownDigit::default()),
-                &Digit::Known(9),
-                &Digit::Known(8),
-                &Digit::Known(7),
-                &Digit::Known(9),
-                &Digit::Unknown(UnknownDigit::default()),
-                &Digit::Unknown(UnknownDigit::default()),
+                LocalizedDigit::new(&Digit::Known(3), 0, 5),
+                LocalizedDigit::new(&Digit::Known(2), 1, 5),
+                LocalizedDigit::new(&Digit::Known(1), 2, 5),
+                LocalizedDigit::new(&Digit::Known(7), 3, 5),
+                LocalizedDigit::new(&Digit::Known(8), 4, 5),
+                LocalizedDigit::new(&Digit::Known(9), 5, 5),
+                LocalizedDigit::new(&Digit::Unknown(UnknownDigit::default()), 6, 5),
+                LocalizedDigit::new(&Digit::Unknown(UnknownDigit::default()), 7, 5),
+                LocalizedDigit::new(&Digit::Known(1), 8, 5),
             ]
-        )
+        );
+    }
+
+    #[test]
+    fn test_grid_get_neighbour_digits() {
+        let grid = create_grid();
+        let mut actual = grid.get_neighbour_digits(5, 3);
+        actual.sort_unstable();
+        let unknown_digit = Digit::Unknown(UnknownDigit::default());
+        let mut expected = vec![
+            &Digit::Known(1),
+            &Digit::Known(2),
+            &Digit::Known(4),
+            &Digit::Known(5),
+            &Digit::Known(6),
+            &Digit::Known(7),
+            &Digit::Known(8),
+            &Digit::Known(9),
+            &Digit::Known(7),
+            &Digit::Known(4),
+            &Digit::Known(1),
+            &unknown_digit,
+            &unknown_digit,
+            &unknown_digit,
+            &Digit::Known(9),
+            &Digit::Known(8),
+            &Digit::Known(7),
+            &Digit::Known(9),
+            &unknown_digit,
+            &unknown_digit,
+        ];
+        expected.sort_unstable();
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn test_set_digit() {
+        let mut grid = create_grid();
+        let expected = Grid::new(vec![
+            Subgrid::from_digits(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]),
+            Subgrid::from_digits(vec![9, 8, 7, 6, 5, 4, 3, 2, 1]),
+            Subgrid::from_digits(vec![1, 0, 0, 0, 0, 0, 0, 0, 9]),
+            Subgrid::from_digits(vec![9, 8, 7, 6, 5, 4, 3, 2, 1]),
+            Subgrid::from_digits(vec![1, 2, 9, 4, 5, 6, 7, 8, 9]),
+            Subgrid::from_digits(vec![9, 0, 0, 0, 0, 0, 0, 0, 1]),
+            Subgrid::default(),
+            Subgrid::default(),
+            Subgrid::from_digits(vec![0, 0, 0, 0, 0, 0, 0, 7, 0]),
+        ]);
+        grid.set_digit(5, 3, Digit::Known(9));
+        assert_eq!(expected, grid);
     }
 
     fn create_grid() -> Grid {
