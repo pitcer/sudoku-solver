@@ -110,7 +110,7 @@ impl Grid {
         (0..GRID_JOINT_SIZE)
             .map(|y_joint| {
                 let digit = self.get_digit(x_joint, y_joint);
-                LocalizedDigit::new(digit, x_joint, y_joint)
+                LocalizedDigit::from_borrowed(digit, x_joint, y_joint)
             })
             .collect()
     }
@@ -125,7 +125,7 @@ impl Grid {
         (0..GRID_JOINT_SIZE)
             .map(|x_joint| {
                 let digit = self.get_digit(x_joint, y_joint);
-                LocalizedDigit::new(digit, x_joint, y_joint)
+                LocalizedDigit::from_borrowed(digit, x_joint, y_joint)
             })
             .collect()
     }
@@ -212,7 +212,7 @@ impl Subgrid {
     pub fn get_neighbour_digits(&self, x: usize, y: usize) -> Vec<&Digit> {
         validate_x(x, SUBGRID_SIZE);
         validate_y(y, SUBGRID_SIZE);
-        let mut neighbours = self.digits.iter().collect::<Vec<_>>();
+        let mut neighbours = self.digits();
         let index = self.to_subgrid_index(x, y);
         neighbours.swap_remove(index);
         neighbours
@@ -243,8 +243,23 @@ impl Subgrid {
         self.digits.iter().collect()
     }
 
+    pub fn localized_digits(&self) -> Vec<LocalizedDigit> {
+        self.digits
+            .iter()
+            .enumerate()
+            .map(|(index, digit)| {
+                let (x, y) = self.to_coordinates(index);
+                LocalizedDigit::from_borrowed(digit, x, y)
+            })
+            .collect()
+    }
+
     fn to_subgrid_index(&self, x: usize, y: usize) -> usize {
         x + y * SUBGRID_SIZE
+    }
+
+    fn to_coordinates(&self, index: usize) -> (usize, usize) {
+        (index % SUBGRID_SIZE, index / SUBGRID_SIZE)
     }
 }
 
@@ -313,15 +328,15 @@ mod tests {
         assert_eq!(
             grid.get_vertical_localized_digits(3),
             vec![
-                LocalizedDigit::new(&Digit::Known(9), 3, 0),
-                LocalizedDigit::new(&Digit::Known(6), 3, 1),
-                LocalizedDigit::new(&Digit::Known(3), 3, 2),
-                LocalizedDigit::new(&Digit::Known(1), 3, 3),
-                LocalizedDigit::new(&Digit::Known(4), 3, 4),
-                LocalizedDigit::new(&Digit::Known(7), 3, 5),
-                LocalizedDigit::new(&Digit::Unknown(UnknownDigit::default()), 3, 6),
-                LocalizedDigit::new(&Digit::Unknown(UnknownDigit::default()), 3, 7),
-                LocalizedDigit::new(&Digit::Unknown(UnknownDigit::default()), 3, 8),
+                LocalizedDigit::from_owned(Digit::Known(9), 3, 0),
+                LocalizedDigit::from_owned(Digit::Known(6), 3, 1),
+                LocalizedDigit::from_owned(Digit::Known(3), 3, 2),
+                LocalizedDigit::from_owned(Digit::Known(1), 3, 3),
+                LocalizedDigit::from_owned(Digit::Known(4), 3, 4),
+                LocalizedDigit::from_owned(Digit::Known(7), 3, 5),
+                LocalizedDigit::from_owned(Digit::Unknown(UnknownDigit::default()), 3, 6),
+                LocalizedDigit::from_owned(Digit::Unknown(UnknownDigit::default()), 3, 7),
+                LocalizedDigit::from_owned(Digit::Unknown(UnknownDigit::default()), 3, 8),
             ]
         );
     }
@@ -351,15 +366,15 @@ mod tests {
         assert_eq!(
             grid.get_horizontal_localized_digits(5),
             vec![
-                LocalizedDigit::new(&Digit::Known(3), 0, 5),
-                LocalizedDigit::new(&Digit::Known(2), 1, 5),
-                LocalizedDigit::new(&Digit::Known(1), 2, 5),
-                LocalizedDigit::new(&Digit::Known(7), 3, 5),
-                LocalizedDigit::new(&Digit::Known(8), 4, 5),
-                LocalizedDigit::new(&Digit::Known(9), 5, 5),
-                LocalizedDigit::new(&Digit::Unknown(UnknownDigit::default()), 6, 5),
-                LocalizedDigit::new(&Digit::Unknown(UnknownDigit::default()), 7, 5),
-                LocalizedDigit::new(&Digit::Known(1), 8, 5),
+                LocalizedDigit::from_owned(Digit::Known(3), 0, 5),
+                LocalizedDigit::from_owned(Digit::Known(2), 1, 5),
+                LocalizedDigit::from_owned(Digit::Known(1), 2, 5),
+                LocalizedDigit::from_owned(Digit::Known(7), 3, 5),
+                LocalizedDigit::from_owned(Digit::Known(8), 4, 5),
+                LocalizedDigit::from_owned(Digit::Known(9), 5, 5),
+                LocalizedDigit::from_owned(Digit::Unknown(UnknownDigit::default()), 6, 5),
+                LocalizedDigit::from_owned(Digit::Unknown(UnknownDigit::default()), 7, 5),
+                LocalizedDigit::from_owned(Digit::Known(1), 8, 5),
             ]
         );
     }
@@ -397,7 +412,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_digit() {
+    fn test_grid_set_digit() {
         let mut grid = create_grid();
         let expected = Grid::new(vec![
             Subgrid::from_digits(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]),
@@ -412,6 +427,24 @@ mod tests {
         ]);
         grid.set_digit(5, 3, Digit::Known(9));
         assert_eq!(expected, grid);
+    }
+
+    #[test]
+    fn test_subgrid_localized_digits() {
+        let subgrid = Subgrid::from_digits(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        let expected = vec![
+            LocalizedDigit::from_owned(Digit::Known(1), 0, 0),
+            LocalizedDigit::from_owned(Digit::Known(2), 1, 0),
+            LocalizedDigit::from_owned(Digit::Known(3), 2, 0),
+            LocalizedDigit::from_owned(Digit::Known(4), 0, 1),
+            LocalizedDigit::from_owned(Digit::Known(5), 1, 1),
+            LocalizedDigit::from_owned(Digit::Known(6), 2, 1),
+            LocalizedDigit::from_owned(Digit::Known(7), 0, 2),
+            LocalizedDigit::from_owned(Digit::Known(8), 1, 2),
+            LocalizedDigit::from_owned(Digit::Known(9), 2, 2),
+        ];
+        let actual = subgrid.localized_digits();
+        assert_eq!(expected, actual);
     }
 
     fn create_grid() -> Grid {

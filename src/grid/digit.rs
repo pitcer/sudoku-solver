@@ -22,16 +22,32 @@
  * SOFTWARE.
  */
 
+use std::borrow::Cow;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LocalizedDigit<'a> {
-    pub digit: &'a Digit,
+    pub digit: Cow<'a, Digit>,
     pub x: usize,
     pub y: usize,
 }
 
 impl<'a> LocalizedDigit<'a> {
-    pub fn new(digit: &'a Digit, x: usize, y: usize) -> Self {
+    pub fn new(digit: Cow<'a, Digit>, x: usize, y: usize) -> Self {
         Self { digit, x, y }
+    }
+
+    pub fn from_owned(digit: Digit, x: usize, y: usize) -> Self {
+        let digit = Cow::Owned(digit);
+        Self::new(digit, x, y)
+    }
+
+    pub fn from_borrowed(digit: &'a Digit, x: usize, y: usize) -> Self {
+        let digit = Cow::Borrowed(digit);
+        Self::new(digit, x, y)
+    }
+
+    pub fn into_owned_tuple(self) -> (Digit, usize, usize) {
+        (self.digit.into_owned(), self.x, self.y)
     }
 }
 

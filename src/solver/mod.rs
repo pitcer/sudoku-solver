@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 use std::time::{Duration, Instant};
 
 use crate::grid::digit::{Digit, LocalizedDigit};
@@ -46,90 +46,73 @@ impl Solver {
             self.set_possible_values();
             self.set_values();
             self.set_possible_values();
-            self.set_only_one_possible_solution_for_subgrids();
+            self.set_single_possible_solution_for_subgrids();
             self.set_possible_values();
-            self.set_only_one_possible_solution_for_columns();
+            self.set_single_possible_solution_for_columns();
             self.set_possible_values();
-            self.set_only_one_possible_solution_for_rows();
+            self.set_single_possible_solution_for_rows();
         }
         Ok(self.grid)
     }
 
-    fn set_only_one_possible_solution_for_subgrids(&mut self) {
+    fn set_single_possible_solution_for_subgrids(&mut self) {
         for subgrid in &mut self.grid.subgrids {
-            let digits = subgrid.digits();
-            let possible_values = Self::get_possible_values(digits);
-            for value in possible_values {
-                let mut digits_with_possible_value = Vec::with_capacity(9);
-                for digit in &mut subgrid.digits {
-                    if let Digit::Unknown(unknown_digit) = digit {
-                        let digit_possible_values = &unknown_digit.possible_values;
-                        if digit_possible_values.contains(&value) {
-                            digits_with_possible_value.push(digit)
-                        }
-                    }
-                }
-                if digits_with_possible_value.len() == 1 {
-                    let digit = digits_with_possible_value.swap_remove(0);
-                    let known_digit = Digit::Known(value);
-                    *digit = known_digit;
-                }
-            }
+            let digits = subgrid.localized_digits();
+            Self::get_solutions(digits)
+                .into_iter()
+                .map(|solution| solution.into_owned_tuple())
+                .for_each(|(digit, x, y)| subgrid.set_digit(x, y, digit));
         }
     }
 
-    fn set_only_one_possible_solution_for_columns(&mut self) {
+    fn set_single_possible_solution_for_columns(&mut self) {
         for x in 0..GRID_JOINT_SIZE {
-            let column = self.grid.get_vertical_digits(x);
-            let possible_values = Self::get_possible_values(column);
-            for value in possible_values {
-                let mut digits_with_possible_value = Vec::with_capacity(9);
-                for digit in self.grid.get_vertical_localized_digits(x) {
-                    if let Digit::Unknown(unknown_digit) = digit.digit {
-                        let digit_possible_values = &unknown_digit.possible_values;
-                        if digit_possible_values.contains(&value) {
-                            digits_with_possible_value.push(digit)
-                        }
-                    }
-                }
-                if digits_with_possible_value.len() == 1 {
-                    let digit = digits_with_possible_value.swap_remove(0);
-                    let LocalizedDigit { digit: _, x, y } = digit;
-                    let known_digit = Digit::Known(value);
-                    self.grid.set_digit(x, y, known_digit);
-                }
-            }
+            let column = self.grid.get_vertical_localized_digits(x);
+            Self::get_solutions(column)
+                .into_iter()
+                .map(|solution| solution.into_owned_tuple())
+                .for_each(|(digit, x, y)| self.grid.set_digit(x, y, digit));
         }
     }
 
-    fn set_only_one_possible_solution_for_rows(&mut self) {
+    fn set_single_possible_solution_for_rows(&mut self) {
         for y in 0..GRID_JOINT_SIZE {
-            let row = self.grid.get_horizontal_digits(y);
-            let possible_values = Self::get_possible_values(row);
-            for value in possible_values {
-                let mut digits_with_possible_value = Vec::with_capacity(9);
-                for digit in self.grid.get_horizontal_localized_digits(y) {
-                    if let Digit::Unknown(unknown_digit) = digit.digit {
-                        let digit_possible_values = &unknown_digit.possible_values;
-                        if digit_possible_values.contains(&value) {
-                            digits_with_possible_value.push(digit)
-                        }
-                    }
-                }
-                if digits_with_possible_value.len() == 1 {
-                    let digit = digits_with_possible_value.swap_remove(0);
-                    let LocalizedDigit { digit: _, x, y } = digit;
-                    let known_digit = Digit::Known(value);
-                    self.grid.set_digit(x, y, known_digit);
-                }
-            }
+            let row = self.grid.get_horizontal_localized_digits(y);
+            Self::get_solutions(row)
+                .into_iter()
+                .map(|solution| solution.into_owned_tuple())
+                .for_each(|(digit, x, y)| self.grid.set_digit(x, y, digit));
         }
     }
 
-    fn get_possible_values(digits: Vec<&Digit>) -> Vec<u32> {
+    fn get_solutions<'a, 'b>(digits: Vec<LocalizedDigit<'a>>) -> Vec<LocalizedDigit<'b>> {
+        let possible_values = Self::get_possible_values(&digits);
+        let mut solutions = Vec::with_capacity(9);
+        for value in possible_values {
+            let mut digits_with_possible_value = Vec::with_capacity(9);
+            for digit in &digits {
+                if let Digit::Unknown(unknown_digit) = digit.digit.borrow() {
+                    let digit_possible_values = &unknown_digit.possible_values;
+                    if digit_possible_values.contains(&value) {
+                        digits_with_possible_value.push(digit)
+                    }
+                }
+            }
+            if digits_with_possible_value.len() == 1 {
+                let digit = digits_with_possible_value.swap_remove(0);
+                let LocalizedDigit { digit: _, x, y } = digit;
+                let digit = Digit::Known(value);
+                let digit = LocalizedDigit::from_owned(digit, *x, *y);
+                solutions.push(digit);
+            }
+        }
+        solutions
+    }
+
+    fn get_possible_values(digits: &[LocalizedDigit]) -> Vec<u32> {
         let mut possible_values = (1..=SUBGRID_LENGTH as u32).collect::<Vec<_>>();
         for digit in digits {
-            if let Digit::Known(digit) = digit {
+            if let Digit::Known(digit) = digit.digit.borrow() {
                 possible_values.retain(|element| element != digit);
             }
         }
