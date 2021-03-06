@@ -22,32 +22,42 @@
  * SOFTWARE.
  */
 
-use crate::grid::generator::Generator;
-use crate::grid::parser::Parser;
-use crate::solver::Solver;
-use std::io;
-use std::io::{Error, Read};
-
-pub mod grid;
-pub mod solver;
-
-fn main() {
-    let mut stdin = io::stdin();
-    let grid_syntax = read_input(&mut stdin).expect("Cannot read from std input");
-    let parser = Parser::default();
-    let grid = parser.parse(grid_syntax).expect("Cannot parse grid syntax");
-    let solver = Solver::new(grid);
-    let solved_grid = solver.solve().expect("Cannot solve the given grid");
-    dbg!(&solved_grid);
-    let generator = Generator::default();
-    let readable_grid = generator
-        .generate(solved_grid)
-        .expect("Cannot generate readable grid");
-    println!("{}", readable_grid);
+#[derive(Debug, Clone, PartialEq)]
+pub enum Digit {
+    Known(u32),
+    Unknown(UnknownDigit),
 }
 
-fn read_input(stdin: &mut dyn Read) -> Result<String, Error> {
-    let mut result = String::new();
-    stdin.read_to_string(&mut result)?;
-    Ok(result)
+impl Default for Digit {
+    fn default() -> Self {
+        let digit = UnknownDigit::default();
+        Digit::Unknown(digit)
+    }
+}
+
+impl From<u32> for Digit {
+    fn from(digit: u32) -> Self {
+        match digit {
+            0 => Digit::Unknown(UnknownDigit::default()),
+            _ => Digit::Known(digit),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnknownDigit {
+    pub possible_values: Vec<u32>,
+}
+
+impl Default for UnknownDigit {
+    fn default() -> Self {
+        let values = Vec::default();
+        Self::new(values)
+    }
+}
+
+impl UnknownDigit {
+    pub fn new(possible_values: Vec<u32>) -> Self {
+        Self { possible_values }
+    }
 }

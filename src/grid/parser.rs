@@ -25,7 +25,8 @@
 use std::borrow::Cow;
 use std::str::Chars;
 
-use crate::grid::{Grid, Subgrid, GRID_SIZE, GRID_SIZE_SQUARED, SUBGRID_SIZE};
+use crate::grid::digit::Digit;
+use crate::grid::{Grid, Subgrid, GRID_JOINT_SIZE, GRID_LENGTH, GRID_SIZE, SUBGRID_SIZE};
 
 pub type ParserResult = Result<Grid, ParserError>;
 pub type ParserError = Cow<'static, str>;
@@ -54,9 +55,9 @@ impl Parser {
         Ok(grid)
     }
 
-    fn parse_characters(&self, characters: Chars) -> Result<Vec<Vec<u32>>, ParserError> {
+    fn parse_characters(&self, characters: Chars) -> Result<Vec<Vec<Digit>>, ParserError> {
         let mut digit_counter = 0;
-        let mut subgrids_digits: Vec<Vec<u32>> = vec![Vec::default(); GRID_SIZE_SQUARED];
+        let mut subgrids_digits: Vec<Vec<_>> = vec![Vec::default(); GRID_LENGTH];
         for character in characters {
             self.parse_character(character, &mut digit_counter, &mut subgrids_digits)?;
         }
@@ -67,7 +68,7 @@ impl Parser {
         &self,
         character: char,
         digit_counter: &mut usize,
-        subgrids_digits: &mut Vec<Vec<u32>>,
+        subgrids_digits: &mut Vec<Vec<Digit>>,
     ) -> Result<(), ParserError> {
         match character {
             '0'..='9' => self.parse_digit(character, digit_counter, subgrids_digits),
@@ -80,14 +81,14 @@ impl Parser {
         &self,
         character: char,
         digit_counter: &mut usize,
-        subgrids_digits: &mut Vec<Vec<u32>>,
+        subgrids_digits: &mut Vec<Vec<Digit>>,
     ) -> Result<(), ParserError> {
         let counter = *digit_counter;
-        const GRID_WIDTH: usize = GRID_SIZE * SUBGRID_SIZE;
-        let row = counter / (GRID_WIDTH * GRID_SIZE);
+        let row = counter / (GRID_JOINT_SIZE * GRID_SIZE);
         let index = GRID_SIZE * row + (counter / SUBGRID_SIZE) % GRID_SIZE;
         let digits = subgrids_digits.get_mut(index).ok_or("Invalid index")?;
         let digit = character.to_digit(10).ok_or("Invalid character")?;
+        let digit = Digit::from(digit);
         digits.push(digit);
         *digit_counter += 1;
         Ok(())
@@ -103,12 +104,12 @@ mod tests {
     #[test]
     fn test_grid_is_parsed_correctly() -> TestResult {
         let expected = Grid::new(vec![
-            Subgrid::new(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            Subgrid::new(vec![9, 8, 7, 6, 5, 4, 3, 2, 1]),
-            Subgrid::new(vec![1, 0, 0, 0, 0, 0, 0, 0, 9]),
-            Subgrid::new(vec![9, 8, 7, 6, 5, 4, 3, 2, 1]),
-            Subgrid::new(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            Subgrid::new(vec![9, 0, 0, 0, 0, 0, 0, 0, 1]),
+            Subgrid::from_digits(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]),
+            Subgrid::from_digits(vec![9, 8, 7, 6, 5, 4, 3, 2, 1]),
+            Subgrid::from_digits(vec![1, 0, 0, 0, 0, 0, 0, 0, 9]),
+            Subgrid::from_digits(vec![9, 8, 7, 6, 5, 4, 3, 2, 1]),
+            Subgrid::from_digits(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]),
+            Subgrid::from_digits(vec![9, 0, 0, 0, 0, 0, 0, 0, 1]),
             Subgrid::default(),
             Subgrid::default(),
             Subgrid::default(),
