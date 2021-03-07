@@ -23,10 +23,12 @@
  */
 
 use crate::grid::digit::{Digit, LocalizedDigit};
+use crate::grid::position::Position;
 
 pub mod digit;
 pub mod generator;
 pub mod parser;
+pub mod position;
 
 pub const GRID_SIZE: usize = 3;
 pub const GRID_LENGTH: usize = GRID_SIZE * GRID_SIZE;
@@ -207,6 +209,18 @@ impl Subgrid {
             }
         }
         true
+    }
+
+    pub fn get_digits_excluding(&self, positions: Vec<Position>) -> Vec<&Digit> {
+        let mut digits = Vec::with_capacity(SUBGRID_LENGTH);
+        for index in 0..SUBGRID_LENGTH {
+            let position = Position::from_index(index);
+            if !positions.contains(&position) {
+                let digit = self.digits.get(index).unwrap();
+                digits.push(digit);
+            }
+        }
+        digits
     }
 
     pub fn get_neighbour_digits(&self, x: usize, y: usize) -> Vec<&Digit> {
@@ -444,6 +458,25 @@ mod tests {
             LocalizedDigit::from_owned(Digit::Known(9), 2, 2),
         ];
         let actual = subgrid.localized_digits();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_subgrid_get_digits_excluding() {
+        let subgrid = Subgrid::from_digits(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        let expected = vec![
+            &Digit::Known(1),
+            &Digit::Known(3),
+            &Digit::Known(4),
+            &Digit::Known(5),
+            &Digit::Known(7),
+            &Digit::Known(8),
+        ];
+        let actual = subgrid.get_digits_excluding(vec![
+            Position::new(1, 0),
+            Position::new(2, 1),
+            Position::new(2, 2),
+        ]);
         assert_eq!(expected, actual);
     }
 

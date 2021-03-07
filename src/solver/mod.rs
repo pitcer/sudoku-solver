@@ -26,7 +26,8 @@ use std::borrow::{Borrow, Cow};
 use std::time::{Duration, Instant};
 
 use crate::grid::digit::{Digit, LocalizedDigit};
-use crate::grid::{Grid, GRID_JOINT_SIZE, SUBGRID_LENGTH};
+use crate::grid::position::Position;
+use crate::grid::{Grid, GRID_JOINT_SIZE, GRID_SIZE, SUBGRID_LENGTH, SUBGRID_SIZE};
 
 pub type SolverResult = Result<Grid, SolverError>;
 pub type SolverError = Cow<'static, str>;
@@ -44,18 +45,18 @@ impl Solver {
         let start = Instant::now();
         while !self.grid.is_solved() && start.elapsed() < Duration::from_secs(1) {
             self.set_possible_values();
-            self.set_values();
+            self.set_single_possible_values();
             self.set_possible_values();
-            self.set_single_possible_solution_for_subgrids();
+            self.find_single_possible_solutions_for_subgrids();
             self.set_possible_values();
-            self.set_single_possible_solution_for_columns();
+            self.find_single_possible_solutions_for_columns();
             self.set_possible_values();
-            self.set_single_possible_solution_for_rows();
+            self.find_single_possible_solutions_for_rows();
         }
         Ok(self.grid)
     }
 
-    fn set_single_possible_solution_for_subgrids(&mut self) {
+    fn find_single_possible_solutions_for_subgrids(&mut self) {
         for subgrid in &mut self.grid.subgrids {
             let digits = subgrid.localized_digits();
             Self::get_solutions(digits)
@@ -65,7 +66,7 @@ impl Solver {
         }
     }
 
-    fn set_single_possible_solution_for_columns(&mut self) {
+    fn find_single_possible_solutions_for_columns(&mut self) {
         for x in 0..GRID_JOINT_SIZE {
             let column = self.grid.get_vertical_localized_digits(x);
             Self::get_solutions(column)
@@ -75,7 +76,7 @@ impl Solver {
         }
     }
 
-    fn set_single_possible_solution_for_rows(&mut self) {
+    fn find_single_possible_solutions_for_rows(&mut self) {
         for y in 0..GRID_JOINT_SIZE {
             let row = self.grid.get_horizontal_localized_digits(y);
             Self::get_solutions(row)
@@ -119,7 +120,7 @@ impl Solver {
         possible_values
     }
 
-    fn set_values(&mut self) {
+    fn set_single_possible_values(&mut self) {
         for x in 0..GRID_JOINT_SIZE {
             for y in 0..GRID_JOINT_SIZE {
                 let digit = self.grid.get_digit_mut(x, y);
@@ -147,6 +148,8 @@ impl Solver {
                 }
             }
         }
+        self.eliminate_impossible_possible_values_in_columns();
+        self.eliminate_impossible_possible_values_in_rows();
     }
 
     fn get_complement(neighbours: Vec<&Digit>) -> Vec<u32> {
@@ -158,4 +161,104 @@ impl Solver {
         }
         complement
     }
+
+    fn eliminate_impossible_possible_values_in_columns(&mut self) {
+        for grid_row in 0..GRID_SIZE {
+            for column in 0..GRID_JOINT_SIZE {
+                let mut column_values = Vec::with_capacity(9);
+                for subgrid_y in SUBGRID_SIZE * grid_row..SUBGRID_SIZE * (grid_row + 1) {
+                    let digit = self.grid.get_digit(column, subgrid_y);
+                    if let Digit::Unknown(digit) = digit {
+                        let mut possible_values = digit.possible_values.clone();
+                        column_values.append(&mut possible_values)
+                    }
+                }
+                let subgrid = self.grid.get_subgrid(column, SUBGRID_SIZE * grid_row);
+                let mut positions = Vec::with_capacity(SUBGRID_SIZE);
+                let x = column % SUBGRID_SIZE;
+                for y in 0..SUBGRID_SIZE {
+                    let position = Position::new(x, y);
+                    positions.push(position)
+                }
+                let mut values_to_remove = Vec::with_capacity(SUBGRID_LENGTH);
+                let digits = subgrid.get_digits_excluding(positions);
+                for column_value in column_values {
+                    if !Self::is_in_digits(column_value, &digits) {
+                        values_to_remove.push(column_value);
+                    }
+                }
+                for value in values_to_remove {
+                    for row in 0..SUBGRID_SIZE * grid_row {
+                        let digit = self.grid.get_digit_mut(column, row);
+                        if let Digit::Unknown(digit) = digit {
+                            digit.possible_values.retain(|element| *element != value);
+                        }
+                    }
+                    for row in SUBGRID_SIZE * (grid_row + 1)..GRID_JOINT_SIZE {
+                        let digit = self.grid.get_digit_mut(column, row);
+                        if let Digit::Unknown(digit) = digit {
+                            digit.possible_values.retain(|element| *element != value);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn eliminate_impossible_possible_values_in_rows(&mut self) {
+        for grid_column in 0..GRID_SIZE {
+            for row in 0..GRID_JOINT_SIZE {
+                let mut row_values = Vec::with_capacity(9);
+                for subgrid_x in SUBGRID_SIZE * grid_column..SUBGRID_SIZE * (grid_column + 1) {
+                    let digit = self.grid.get_digit(subgrid_x, row);
+                    if let Digit::Unknown(digit) = digit {
+                        let mut possible_values = digit.possible_values.clone();
+                        row_values.append(&mut possible_values)
+                    }
+                }
+                let subgrid = self.grid.get_subgrid(SUBGRID_SIZE * grid_column, row);
+                let mut positions = Vec::with_capacity(SUBGRID_SIZE);
+                let y = row % SUBGRID_SIZE;
+                for x in 0..SUBGRID_SIZE {
+                    let position = Position::new(x, y);
+                    positions.push(position)
+                }
+                let mut values_to_remove = Vec::with_capacity(SUBGRID_LENGTH);
+                let digits = subgrid.get_digits_excluding(positions);
+                for row_value in row_values {
+                    if !Self::is_in_digits(row_value, &digits) {
+                        values_to_remove.push(row_value);
+                    }
+                }
+                for value in values_to_remove {
+                    for column in 0..SUBGRID_SIZE * grid_column {
+                        let digit = self.grid.get_digit_mut(column, row);
+                        if let Digit::Unknown(digit) = digit {
+                            digit.possible_values.retain(|element| *element != value);
+                        }
+                    }
+                    for column in SUBGRID_SIZE * (grid_column + 1)..GRID_JOINT_SIZE {
+                        let digit = self.grid.get_digit_mut(column, row);
+                        if let Digit::Unknown(digit) = digit {
+                            digit.possible_values.retain(|element| *element != value);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn is_in_digits(value: u32, digits: &[&Digit]) -> bool {
+        for digit in digits {
+            if let Digit::Unknown(digit) = digit {
+                if digit.possible_values.contains(&value) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
+
+#[cfg(test)]
+mod tests;
